@@ -106,3 +106,54 @@ def simulate_2d_gnc(
         "measurements": measurements,
         "dt": np.array([dt]),
     }
+
+
+def cartesian_to_bearing_range(points_xy: np.ndarray) -> np.ndarray:
+    """Convert x/y points to [range, bearing] observations."""
+    x = points_xy[:, 0]
+    y = points_xy[:, 1]
+    ranges = np.sqrt(x**2 + y**2)
+    bearings = np.arctan2(y, x)
+    return np.column_stack([ranges, bearings])
+
+
+def bearing_range_to_cartesian(measurements_rb: np.ndarray) -> np.ndarray:
+    """Convert [range, bearing] observations to x/y points."""
+    r = measurements_rb[:, 0]
+    b = measurements_rb[:, 1]
+    x = r * np.cos(b)
+    y = r * np.sin(b)
+    return np.column_stack([x, y])
+
+
+def simulate_2d_bearing_sensor(
+    n_steps: int = 140,
+    dt: float = 1.0,
+    process_accel_std: float = 0.25,
+    range_std: float = 2.5,
+    bearing_std_rad: float = 0.03,
+    seed: int = 77,
+) -> dict[str, np.ndarray]:
+    """Simulate nonlinear radar-like [range, bearing] measurements from 2D motion."""
+    base = simulate_2d_gnc(
+        n_steps=n_steps,
+        dt=dt,
+        process_accel_std=process_accel_std,
+        measurement_std=0.0,
+        seed=seed,
+    )
+    true_state = base["true_state"]
+
+    true_rb = cartesian_to_bearing_range(true_state[:, :2])
+    rng = np.random.default_rng(seed + 1)
+    noisy_rb = np.zeros_like(true_rb)
+    noisy_rb[:, 0] = true_rb[:, 0] + rng.normal(0.0, range_std, size=n_steps)
+    noisy_rb[:, 1] = true_rb[:, 1] + rng.normal(0.0, bearing_std_rad, size=n_steps)
+
+    return {
+        "true_state": true_state,
+        "true_bearing_range": true_rb,
+        "measurements_bearing_range": noisy_rb,
+        "measurements_cartesian_naive": bearing_range_to_cartesian(noisy_rb),
+        "dt": np.array([dt]),
+    }
