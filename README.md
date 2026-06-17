@@ -26,6 +26,8 @@
 ## Table of Contents
 
 - [What This Project Is](#what-this-project-is)
+- [Slope, Weights, and What They Actually Mean](#slope-weights-and-what-they-actually-mean)
+- [How Kalman Is Genuinely Different From Regression](#how-kalman-is-genuinely-different-from-regression)
 - [The Core Insight](#the-core-insight)
 - [Quick Comparison: Regression vs Kalman](#quick-comparison-regression-vs-kalman)
 - [When to Use What](#when-to-use-what)
@@ -51,6 +53,119 @@ Linear regression treats the world as static. It assumes that some fixed set of 
 The Kalman filter treats the world as dynamic. It assumes a process model that evolves through time and a measurement model that maps the hidden state to observable quantities, each corrupted by Gaussian noise. Instead of solving a global problem once, it processes one observation at a time and maintains a probability distribution (a mean vector and a covariance matrix) over the current state. This is the "online" or "recursive" mindset: update your belief as each new piece of evidence arrives.
 
 What makes this project interesting is that these two approaches are not opposites - they are deeply unified. Under specific conditions (stationary state, linear model, Gaussian noise), the steady-state Kalman gain converges to exactly the solution you would get from ordinary least squares. Understanding this connection gives you profound insight into why both algorithms work and when you should prefer one over the other.
+
+---
+
+## Slope, Weights, and What They Actually Mean
+
+The **slope** in linear regression is the single number that answers: "if x goes up by 1, how much does y go up?" That is it. If your data is `(hours_studied, exam_score)` and the slope is `4.2`, it means each extra hour of studying predicts 4.2 more points on the exam. The **intercept** is what the model predicts when x is zero.
+
+Formally: $\hat{y} = \text{slope} \times x + \text{intercept}$
+
+Regression finds the slope and intercept that minimise the total squared error across every data point - that optimisation is done once, over the whole dataset, and then the slope is frozen forever.
+
+### Wait - so how is that different from a transformer weight matrix?
+
+Great question. They are the same idea at different scales and with very different training procedures.
+
+In a transformer, the weight matrix $W$ in a linear layer does exactly what slope does - it scales and rotates an input vector to produce an output vector. The operation `y = W @ x` is just slope applied to every dimension simultaneously. A matrix is just a slope for vectors.
+
+The difference is:
+
+| | Linear Regression | Transformer Weight Matrix |
+|---|---|---|
+| What it maps | one number x to one number y | a vector of 512+ numbers to another vector |
+| How slope/weight is found | closed-form normal equations - one shot | gradient descent over millions of examples - many passes |
+| Number of "slopes" | 1 (or p for multi-feature) | millions to billions |
+| What the weight encodes | one linear relationship in your data | a learned feature transformation - no human-readable meaning |
+| After training, does it change? | No - frozen | No - frozen (at inference time) |
+| Can it represent non-linearity? | No | Yes - via activation functions between layers |
+
+So when a transformer processes a sentence, every attention layer and every feed-forward layer is doing `output = W @ input + b` - which is structurally identical to `y = slope * x + intercept`. The weights ARE slopes. Billions of them, stacked, with non-linearities between layers so the whole thing can represent arbitrarily complex functions.
+
+Regression is just a transformer with one layer, one neuron, and no activation function.
+
+> [!NOTE]
+> This is why linear regression is taught first. It is the atomic unit of every neural network. Understanding what slope means, how it is found, and what residuals tell you gives you the intuition for why gradient descent works, what loss functions represent, and why overfitting happens.
+
+### The slope in code
+
+```python
+from src.kalman_regression_estimation_lab.regression import fit_static_linear_regression
+import numpy as np
+
+x = np.array([1, 2, 3, 4, 5], dtype=float)
+y = np.array([2.1, 3.9, 6.2, 7.8, 10.1], dtype=float)  # roughly y = 2x + 0
+
+result = fit_static_linear_regression(x, y)
+print(f"Slope:     {result['slope']:.4f}")      # ~2.0  - each unit of x adds this much to y
+print(f"Intercept: {result['intercept']:.4f}")  # ~0.0  - predicted y when x=0
+print(f"RMSE:      {result['rmse']:.4f}")       # how wrong the line is on average
+```
+
+The slope says: "the best single linear relationship I found in this data". Nothing more. It knows nothing about whether x=3 came before x=4, it knows nothing about velocity, it cannot tell you what y will be at x=6 beyond a straight extrapolation.
+
+---
+
+## How Kalman Is Genuinely Different From Regression
+
+This is the question that actually matters. Not "static vs dynamic" - that description is too vague to be useful. Here is the real answer.
+
+### Regression answers: "what line fits this pile of data?"
+
+You dump all your observations in. It finds one set of weights (slopes) that minimise total squared error. The output is a frozen model. It treats every observation as equal, orderless, timeless. Observation 47 is no more recent than observation 3 - they are just two rows in a matrix.
+
+This is incredibly powerful for AI/ML. Training a neural network IS regression at its core - you are finding weights that map inputs to outputs across a training set.
+
+### Kalman answers: "where is this thing right now, given physics and a noisy sensor?"
+
+Kalman does not care about fitting a line. It answers a completely different question. It does three things regression fundamentally cannot do:
+
+**1. It encodes physics.** You write down the equations of motion. `position_next = position_now + velocity * dt`. This is not learned from data - you put it in as prior knowledge. Regression has no such mechanism. It only knows what the data tells it.
+
+**2. It tracks uncertainty in real time.** Kalman carries a covariance matrix `P` that represents "how uncertain am I about the current state, right now." Every time a new measurement arrives, `P` shrinks. Every time a step passes without a measurement, `P` grows (because the system could have drifted). Regression computes one confidence interval after training is done - it cannot grow and shrink in real time as evidence arrives.
+
+**3. It estimates quantities that were never measured.** A GPS gives you position. Kalman gives you velocity too - by inferring it from the physics model across multiple position readings. Regression can only predict outputs it was trained to predict. You cannot train regression to output velocity if velocity was never in your training labels.
+
+### The concrete illustration
+
+```python
+from src.kalman_regression_estimation_lab.simulation import simulate_1d_motion
+from src.kalman_regression_estimation_lab.kalman import run_kalman_1d
+from src.kalman_regression_estimation_lab.regression import fit_time_regression
+import numpy as np
+
+# Simulate a moving object - we only observe noisy position
+scenario = simulate_1d_motion(n_steps=180, maneuver_step=90, maneuver_accel=0.8)
+
+# --- Regression approach ---
+# Give it all the noisy position readings, ask it to fit a line through time
+reg_pred = fit_time_regression(scenario.t, scenario.measured_position)
+# Result: one straight line through everything.
+# When the object maneuvers at t=90, regression has no idea - it just draws a line.
+# It CANNOT estimate velocity.
+
+# --- Kalman approach ---
+results = run_kalman_1d(
+    z=scenario.measured_position,
+    dt=1.0,
+    process_accel_std=0.2,
+    measurement_std=2.0,
+    x0=0.0,
+    v0=1.0,
+)
+# results["est"][:, 0]  - estimated position at every timestep
+# results["est"][:, 1]  - estimated VELOCITY - never directly observed, inferred from physics
+# results["gain"]       - how much Kalman trusted the sensor vs the physics model each step
+```
+
+At `t=90` when the object suddenly accelerates, regression does not react at all - it already fit its line. Kalman detects the innovation (the difference between predicted and measured position is suddenly large), increases uncertainty, and tracks through the maneuver. The Kalman gain `K` automatically shifts toward trusting the measurements more when the model predictions are off.
+
+### Why both are in this project
+
+The mathematical connection is this: if you take the Kalman filter and set the state transition to identity (`A = I`, meaning "the state does not evolve") and set process noise to zero (`Q = 0`, meaning "I am certain nothing changes"), the Kalman update equation becomes mathematically identical to the recursive least squares update - which converges to the OLS normal equations. Regression is a degenerate special case of Kalman where you assert there are no dynamics.
+
+Understanding this tells you exactly when to escalate from regression to Kalman: the moment you need to track something that moves according to known physics, estimate quantities you never measured, or maintain a real-time uncertainty estimate.
 
 ---
 
