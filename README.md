@@ -36,6 +36,7 @@
 - [Module Guide](#module-guide)
 - [Tech Stack](#tech-stack)
 - [Setup and Installation](#setup-and-installation)
+- [Roadmap Status](#roadmap-status)
 - [Running the Project](#running-the-project)
 - [API Reference](#api-reference)
 - [Project Structure](#project-structure)
@@ -478,11 +479,36 @@ pip install -e .
 
 ---
 
+## Roadmap Status
+
+The project has moved from a minimal educational prototype to a full interactive lab with reusable plotting and significantly broader test coverage. The implementation now includes dedicated figure builders, a multi-module app layout, stronger public API exports, and behavior-driven tests that validate numerical properties of each estimator.
+
+| # | <sub>Roadmap Item</sub> | <sub>Status</sub> | <sub>What Is Implemented</sub> |
+|---|---|---|---|
+| 1 | <sub>Reusable plotting layer</sub> | <sub>Complete</sub> | <sub>`plots.py` with module-specific Plotly builders for A/B/D</sub> |
+| 2 | <sub>Multi-module Streamlit app</sub> | <sub>Complete</sub> | <sub>4 tabs: A (static vs tracking), B (three estimators), C (selection guide), D (2D GNC)</sub> |
+| 3 | <sub>Estimator diagnostics</sub> | <sub>Complete</sub> | <sub>Kalman gain chart, innovation chart, RMSE comparison bars, velocity panels</sub> |
+| 4 | <sub>Expanded test coverage</sub> | <sub>Complete</sub> | <sub>23 tests across Kalman, OLS, RLS, simulation, and demo output contracts</sub> |
+| 5 | <sub>Package API ergonomics</sub> | <sub>Complete</sub> | <sub>Core functions/classes exported in `__init__.py` for direct imports</sub> |
+| 6 | <sub>Remaining roadmap</sub> | <sub>Open</sub> | <sub>Add notebook parity with new visuals and optional EKF/UKF extension module</sub> |
+
+> [!NOTE]
+> Current test status: `23 passed` on local `pytest -v`. The roadmap now shifts from foundation work to advanced estimation extensions and richer notebook pedagogy.
+
+---
+
 ## Running the Project
 
 ### Interactive Streamlit App
 
-The Streamlit app is the fastest way to build intuition. It exposes sliders for measurement noise, process noise, forgetting factor, and number of timesteps. Every slider change immediately re-runs the estimators and re-plots the results, so you can see how the algorithms respond to parameter changes in real time.
+The Streamlit app is now a full 4-tab learning environment instead of a single-view demo. Every slider update re-runs the simulation and estimator stack so you can observe behavior changes instantly.
+
+- **Tab A - Static vs Dynamic:** OLS line fit vs Kalman position tracking, including inferred velocity.
+- **Tab B - Three Estimators:** OLS, RLS, and Kalman side-by-side on identical noisy measurements, with RMSE bars.
+- **Tab C - Algorithm Guide:** Practical selection heuristics for regression, RLS, Kalman, and neural models.
+- **Tab D - GNC 2D Tracker:** Monte Carlo measurement clouds, 2D trajectory tracking, and velocity/error diagnostics.
+
+The diagnostics now include Kalman gain and innovation plots, making filter tuning and interpretation much easier than in the original version.
 
 ```bash
 streamlit run app/streamlit_app.py
@@ -660,7 +686,8 @@ kalman-regression-estimation-lab/
 │       ├── kalman.py            # KalmanFilter class, 1D/2D factory functions
 │       ├── regression.py        # OLS, RLS, time regression
 │       ├── simulation.py        # Data generation for all modules
-│       └── demos.py             # Module A/B/C/D orchestration + plotting
+│       ├── demos.py             # Module A/B/C/D orchestration
+│       └── plots.py             # Reusable Plotly figure builders for app/notebook
 ├── app/
 │   └── streamlit_app.py         # Interactive web UI
 ├── notebooks/

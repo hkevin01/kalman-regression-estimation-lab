@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `.github/` folder with CI workflow, issue templates, and PR template
 - `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CHANGELOG.md`
 - Enhanced `README.md` with Mermaid diagrams, tables, GitHub Alerts, and ArXiv citations
+- `plots.py` reusable plotting layer with Module A/B/D figure builders
+- Streamlit app expanded to four tabs with gain, innovation, velocity, error, and RMSE diagnostics
+- Public API exports in `__init__.py` for demos, Kalman, regression, and simulation utilities
+- Comprehensive estimator test suite expanded to 23 tests
+- README roadmap/status section documenting implemented milestones and remaining next steps
 
 ---
 
