@@ -38,6 +38,7 @@
 - [Setup and Installation](#setup-and-installation)
 - [Roadmap Status](#roadmap-status)
 - [Running the Project](#running-the-project)
+- [Nonlinear EKF/UKF Extension](#nonlinear-ekfukf-extension)
 - [API Reference](#api-reference)
 - [Project Structure](#project-structure)
 - [Key Formulas](#key-formulas)
@@ -320,6 +321,14 @@ Module D is the most complex and visually rich scenario. It simulates a 2D const
 
 The GNC (Guidance, Navigation, and Control) framing is intentional - this is precisely the kind of problem Kalman filters were invented for (Rudolf Kalman's 1960 paper was motivated by the Apollo program navigation problem).
 
+### Module E - Nonlinear EKF and UKF Extension
+
+Module E is the roadmap extension that moves beyond linear measurement models. Instead of observing x/y position directly, the sensor now reports nonlinear radar-like measurements: **range** and **bearing**. That change breaks the assumptions of the linear Kalman filter and motivates two nonlinear alternatives.
+
+The **Extended Kalman Filter (EKF)** linearizes the nonlinear measurement model with a Jacobian at each step and then applies the regular Kalman update equations. The **Unscented Kalman Filter (UKF)** avoids Jacobians and instead propagates deterministic sigma points through the nonlinear transform. In this project, both estimators are implemented for the same constant-velocity 2D state and compared against a naive range-bearing to Cartesian conversion baseline.
+
+This module demonstrates the practical reason nonlinear filters matter: once your sensor geometry is nonlinear, simply converting measurements pointwise is often noisy and biased, while EKF/UKF can recover smoother and more accurate state trajectories by respecting process dynamics and uncertainty.
+
 ---
 
 ## State Transition and Measurement Model (2D Tracker)
@@ -490,7 +499,8 @@ The project has moved from a minimal educational prototype to a full interactive
 | 3 | <sub>Estimator diagnostics</sub> | <sub>Complete</sub> | <sub>Kalman gain chart, innovation chart, RMSE comparison bars, velocity panels</sub> |
 | 4 | <sub>Expanded test coverage</sub> | <sub>Complete</sub> | <sub>23 tests across Kalman, OLS, RLS, simulation, and demo output contracts</sub> |
 | 5 | <sub>Package API ergonomics</sub> | <sub>Complete</sub> | <sub>Core functions/classes exported in `__init__.py` for direct imports</sub> |
-| 6 | <sub>Remaining roadmap</sub> | <sub>Open</sub> | <sub>Add notebook parity with new visuals and optional EKF/UKF extension module</sub> |
+| 6 | <sub>Notebook parity and EKF/UKF extension</sub> | <sub>Complete</sub> | <sub>Notebook now mirrors A-D panels and adds Module E nonlinear EKF/UKF section</sub> |
+| 7 | <sub>Remaining roadmap</sub> | <sub>Open</sub> | <sub>Add Streamlit Tab E for nonlinear EKF/UKF and optional particle filter comparison</sub> |
 
 > [!NOTE]
 > Current test status: `23 passed` on local `pytest -v`. The roadmap now shifts from foundation work to advanced estimation extensions and richer notebook pedagogy.
@@ -520,6 +530,8 @@ The app will open at `http://localhost:8501` in your browser.
 
 The Jupyter notebook walks through all four modules with narrative explanations, code cells, and inline plots. It is the recommended path for a deep understanding of the material.
 
+The notebook now has parity with the app's panel flow for Modules A through D, including estimator overlays, gain/innovation diagnostics, and error/RMSE views. It also includes a Module E extension section for nonlinear EKF/UKF tracking.
+
 ```bash
 jupyter notebook
 # Then open notebooks/kalman_vs_regression.ipynb
@@ -533,6 +545,21 @@ pytest -q
 
 > [!TIP]
 > Run `pytest -v` for verbose output that shows each individual test case name. This is helpful when debugging a specific module.
+
+---
+
+## Nonlinear EKF/UKF Extension
+
+The extension module lives in `src/kalman_regression_estimation_lab/nonlinear.py` and provides both EKF and UKF runners for a nonlinear bearing-range sensor model. It is intentionally designed as a direct continuation of Module D, so learners can see exactly what changes when the measurement function becomes nonlinear.
+
+Key capabilities:
+
+- `run_ekf_2d_bearing_tracking(...)` for Jacobian-based nonlinear filtering.
+- `run_ukf_2d_bearing_tracking(...)` for sigma-point filtering without Jacobians.
+- `simulate_2d_bearing_sensor(...)` for generating nonlinear radar-like observations.
+- `module_e_nonlinear_ekf_ukf(...)` in demos for one-call end-to-end comparison.
+
+The UKF implementation includes positive-definite covariance stabilization so sigma-point generation remains numerically robust over long trajectories.
 
 ---
 
@@ -672,6 +699,25 @@ Generates 1D constant-velocity motion with optional maneuver impulse at a specif
 
 Generates 2D constant-velocity motion with process noise and measurement noise for the GNC tracking module. Returns a dictionary with `true_pos`, `measurements`, and metadata.
 
+---
+
+### `simulate_2d_bearing_sensor`
+
+Generates nonlinear [range, bearing] measurements from a 2D trajectory for EKF/UKF experiments. Also returns a naive Cartesian conversion baseline for metric comparisons.
+
+</details>
+
+<details>
+<summary><strong>nonlinear.py - EKF/UKF nonlinear estimators</strong></summary>
+
+### `run_ekf_2d_bearing_tracking`
+
+Runs an Extended Kalman Filter on 2D constant-velocity state dynamics with nonlinear radar-like [range, bearing] measurements.
+
+### `run_ukf_2d_bearing_tracking`
+
+Runs a scaled Unscented Kalman Filter using sigma-point propagation through nonlinear dynamics/measurement functions, including angle normalization and covariance stabilization.
+
 </details>
 
 ---
@@ -684,6 +730,7 @@ kalman-regression-estimation-lab/
 │   └── kalman_regression_estimation_lab/
 │       ├── __init__.py          # Package entry point
 │       ├── kalman.py            # KalmanFilter class, 1D/2D factory functions
+│       ├── nonlinear.py         # EKF/UKF nonlinear bearing-range tracking
 │       ├── regression.py        # OLS, RLS, time regression
 │       ├── simulation.py        # Data generation for all modules
 │       ├── demos.py             # Module A/B/C/D orchestration

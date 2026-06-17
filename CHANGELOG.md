@@ -16,8 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `plots.py` reusable plotting layer with Module A/B/D figure builders
 - Streamlit app expanded to four tabs with gain, innovation, velocity, error, and RMSE diagnostics
 - Public API exports in `__init__.py` for demos, Kalman, regression, and simulation utilities
-- Comprehensive estimator test suite expanded to 23 tests
+- Comprehensive estimator test suite expanded to 27 tests
 - README roadmap/status section documenting implemented milestones and remaining next steps
+- Notebook parity achieved for Modules A-D visual panel flow
+- New nonlinear extension module `nonlinear.py` with EKF/UKF bearing-range tracking
+- Module E demo entrypoint (`module_e_nonlinear_ekf_ukf`) and plotting support
 
 ---
 

@@ -5,8 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 from .kalman import run_kalman_1d, run_kalman_2d_position_tracking
+from .nonlinear import run_ekf_2d_bearing_tracking, run_ukf_2d_bearing_tracking
 from .regression import fit_static_linear_regression, fit_time_regression, recursive_least_squares
-from .simulation import simulate_1d_motion, simulate_2d_gnc, simulate_static_line
+from .simulation import simulate_1d_motion, simulate_2d_bearing_sensor, simulate_2d_gnc, simulate_static_line
 
 
 def module_a_static_vs_dynamic(
@@ -148,4 +149,48 @@ def module_d_gnc_monte_carlo(
         "measurements": base["measurements"],
         "kalman_estimate": kf["est"],
         "mc_measurements": mc_measurements,
+    }
+
+
+def module_e_nonlinear_ekf_ukf(
+    n_steps: int = 140,
+    dt: float = 1.0,
+    process_accel_std: float = 0.25,
+    range_std: float = 2.5,
+    bearing_std_rad: float = 0.03,
+    seed: int = 77,
+) -> dict[str, np.ndarray]:
+    """Module E - nonlinear bearing/range tracking using EKF and UKF."""
+    sim = simulate_2d_bearing_sensor(
+        n_steps=n_steps,
+        dt=dt,
+        process_accel_std=process_accel_std,
+        range_std=range_std,
+        bearing_std_rad=bearing_std_rad,
+        seed=seed,
+    )
+
+    ekf = run_ekf_2d_bearing_tracking(
+        measurements_bearing_range=sim["measurements_bearing_range"],
+        dt=dt,
+        process_accel_std=process_accel_std,
+        range_std=range_std,
+        bearing_std_rad=bearing_std_rad,
+    )
+    ukf = run_ukf_2d_bearing_tracking(
+        measurements_bearing_range=sim["measurements_bearing_range"],
+        dt=dt,
+        process_accel_std=process_accel_std,
+        range_std=range_std,
+        bearing_std_rad=bearing_std_rad,
+    )
+
+    return {
+        "true_state": sim["true_state"],
+        "measurements_bearing_range": sim["measurements_bearing_range"],
+        "measurements_cartesian_naive": sim["measurements_cartesian_naive"],
+        "ekf_estimate": ekf["est"],
+        "ukf_estimate": ukf["est"],
+        "ekf_prediction": ekf["pred"],
+        "ukf_prediction": ukf["pred"],
     }

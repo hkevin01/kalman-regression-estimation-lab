@@ -15,6 +15,7 @@ from kalman_regression_estimation_lab.demos import (
     module_b_same_data_different_lenses,
     module_c_ai_contexts,
     module_d_gnc_monte_carlo,
+    module_e_nonlinear_ekf_ukf,
 )
 from kalman_regression_estimation_lab.kalman import (
     KalmanFilter,
@@ -22,13 +23,19 @@ from kalman_regression_estimation_lab.kalman import (
     run_kalman_1d,
     run_kalman_2d_position_tracking,
 )
+from kalman_regression_estimation_lab.nonlinear import (
+    run_ekf_2d_bearing_tracking,
+    run_ukf_2d_bearing_tracking,
+)
 from kalman_regression_estimation_lab.regression import (
     fit_static_linear_regression,
     fit_time_regression,
     recursive_least_squares,
 )
 from kalman_regression_estimation_lab.simulation import (
+    bearing_range_to_cartesian,
     simulate_1d_motion,
+    simulate_2d_bearing_sensor,
     simulate_2d_gnc,
     simulate_static_line,
 )
@@ -277,6 +284,84 @@ def test_module_d_output_structure() -> None:
     assert "kalman_estimate" in data
     assert "mc_measurements" in data
     assert data["mc_measurements"].shape[0] == 5
+
+
+# ---------------------------------------------------------------------------
+# Nonlinear EKF/UKF extension
+# ---------------------------------------------------------------------------
+
+def test_simulate_2d_bearing_sensor_shape() -> None:
+    out = simulate_2d_bearing_sensor(n_steps=90)
+    assert out["true_state"].shape == (90, 4)
+    assert out["measurements_bearing_range"].shape == (90, 2)
+    assert out["measurements_cartesian_naive"].shape == (90, 2)
+
+
+def test_ekf_and_ukf_output_shapes() -> None:
+    sim = simulate_2d_bearing_sensor(n_steps=70, seed=10)
+    dt = 1.0
+    ekf = run_ekf_2d_bearing_tracking(
+        measurements_bearing_range=sim["measurements_bearing_range"],
+        dt=dt,
+        process_accel_std=0.25,
+        range_std=2.5,
+        bearing_std_rad=0.03,
+    )
+    ukf = run_ukf_2d_bearing_tracking(
+        measurements_bearing_range=sim["measurements_bearing_range"],
+        dt=dt,
+        process_accel_std=0.25,
+        range_std=2.5,
+        bearing_std_rad=0.03,
+    )
+    assert ekf["pred"].shape == (70, 4)
+    assert ekf["est"].shape == (70, 4)
+    assert ukf["pred"].shape == (70, 4)
+    assert ukf["est"].shape == (70, 4)
+
+
+def test_ekf_ukf_beat_naive_bearing_to_cartesian_rmse() -> None:
+    sim = simulate_2d_bearing_sensor(
+        n_steps=120,
+        process_accel_std=0.25,
+        range_std=3.0,
+        bearing_std_rad=0.04,
+        seed=21,
+    )
+    true_xy = sim["true_state"][:, :2]
+    naive_xy = bearing_range_to_cartesian(sim["measurements_bearing_range"])
+
+    ekf = run_ekf_2d_bearing_tracking(
+        measurements_bearing_range=sim["measurements_bearing_range"],
+        dt=1.0,
+        process_accel_std=0.25,
+        range_std=3.0,
+        bearing_std_rad=0.04,
+    )
+    ukf = run_ukf_2d_bearing_tracking(
+        measurements_bearing_range=sim["measurements_bearing_range"],
+        dt=1.0,
+        process_accel_std=0.25,
+        range_std=3.0,
+        bearing_std_rad=0.04,
+    )
+
+    rmse_naive = float(np.sqrt(np.mean((naive_xy - true_xy) ** 2)))
+    rmse_ekf = float(np.sqrt(np.mean((ekf["est"][:, :2] - true_xy) ** 2)))
+    rmse_ukf = float(np.sqrt(np.mean((ukf["est"][:, :2] - true_xy) ** 2)))
+
+    assert rmse_ekf < rmse_naive
+    assert rmse_ukf < rmse_naive
+
+
+def test_module_e_output_structure() -> None:
+    data = module_e_nonlinear_ekf_ukf(n_steps=80, seed=11)
+    assert "true_state" in data
+    assert "measurements_bearing_range" in data
+    assert "ekf_estimate" in data
+    assert "ukf_estimate" in data
+    assert data["ekf_estimate"].shape == (80, 4)
+    assert data["ukf_estimate"].shape == (80, 4)
 
 
 # ---------------------------------------------------------------------------

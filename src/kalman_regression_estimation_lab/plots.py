@@ -368,3 +368,70 @@ def fig_module_d_position_error(data: dict) -> go.Figure:
         template="plotly_dark",
     )
     return fig
+
+
+# ---------------------------------------------------------------------------
+# Module E helpers
+# ---------------------------------------------------------------------------
+
+def fig_module_e_track_comparison(data: dict) -> go.Figure:
+    """Plot nonlinear tracking comparison: naive conversion vs EKF vs UKF."""
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=data["measurements_cartesian_naive"][:, 0],
+        y=data["measurements_cartesian_naive"][:, 1],
+        mode="markers",
+        name="Naive range-bearing to x/y",
+        marker=dict(size=4, opacity=0.45, color="#7ec8e3"),
+    ))
+    fig.add_trace(go.Scatter(
+        x=data["true_state"][:, 0],
+        y=data["true_state"][:, 1],
+        mode="lines",
+        name="True path",
+        line=dict(color="#ffffff", dash="dot", width=2),
+    ))
+    fig.add_trace(go.Scatter(
+        x=data["ekf_estimate"][:, 0],
+        y=data["ekf_estimate"][:, 1],
+        mode="lines",
+        name="EKF",
+        line=dict(color="#f4a261", width=3),
+    ))
+    fig.add_trace(go.Scatter(
+        x=data["ukf_estimate"][:, 0],
+        y=data["ukf_estimate"][:, 1],
+        mode="lines",
+        name="UKF",
+        line=dict(color="#2a9d8f", width=3),
+    ))
+    fig.update_layout(
+        title="Module E - Nonlinear Bearing/Range Tracking (EKF vs UKF)",
+        xaxis_title="X position",
+        yaxis_title="Y position",
+        template="plotly_dark",
+        legend=dict(orientation="h", y=-0.2),
+    )
+    return fig
+
+
+def fig_module_e_rmse(data: dict) -> go.Figure:
+    """RMSE bar chart for naive, EKF, UKF position estimates."""
+    true = data["true_state"][:, :2]
+    rmse_naive = float(np.sqrt(np.mean((data["measurements_cartesian_naive"] - true) ** 2)))
+    rmse_ekf = float(np.sqrt(np.mean((data["ekf_estimate"][:, :2] - true) ** 2)))
+    rmse_ukf = float(np.sqrt(np.mean((data["ukf_estimate"][:, :2] - true) ** 2)))
+
+    fig = go.Figure(go.Bar(
+        x=["Naive x/y", "EKF", "UKF"],
+        y=[rmse_naive, rmse_ekf, rmse_ukf],
+        marker_color=["#7ec8e3", "#f4a261", "#2a9d8f"],
+        text=[f"{v:.3f}" for v in [rmse_naive, rmse_ekf, rmse_ukf]],
+        textposition="outside",
+    ))
+    fig.update_layout(
+        title="Module E - Position RMSE (lower is better)",
+        yaxis_title="RMSE",
+        template="plotly_dark",
+    )
+    return fig
